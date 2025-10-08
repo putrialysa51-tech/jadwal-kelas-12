@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Penjadwalan Kelas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .hidden {
+            display: none;
+        }
+        .schedule-table th, .schedule-table td {
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            text-align: center;
+            vertical-align: top;
+        }
+        .schedule-table th {
+            background-color: #f9fafb;
+        }
+        .notification-toast {
+            animation: slide-in 0.5s forwards, fade-out 0.5s 4.5s forwards;
+        }
+        @keyframes slide-in {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        @keyframes fade-out {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <!-- Container Utama -->
+    <div id="app-container" class="min-h-screen flex items-center justify-center p-4">
+
+        <!-- Halaman Login -->
+        <div id="login-page" class="w-full max-w-md">
+            <div class="bg-white p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-700">Login Akun</h1>
+                    <p class="text-gray-500 mt-2">Selamat datang kembali!</p>
+                </div>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="username" class="block text-sm font-medium text-gray-600 mb-2">Username</label>
+                        <input type="text" id="username" name="username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan username Anda" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-gray-600 mb-2">Password</label>
+                        <input type="password" id="password" name="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan password Anda" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300 font-semibold">Login</button>
+                    <p id="login-error" class="text-red-500 text-sm text-center mt-4"></p>
+                </form>
+            </div>
+             <p class="text-center text-gray-500 text-xs mt-4">
+                &copy;2025 Aplikasi Penjadwalan.
+            </p>
+        </div>
+        
+        <!-- Halaman Pilih Kelas -->
+        <div id="class-selection-page" class="hidden w-full max-w-md">
+            <div class="bg-white p-8 rounded-xl shadow-lg">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-700">Pilih Kelas</h1>
+                    <p class="text-gray-500 mt-2">Pilih kelas yang ingin Anda lihat atau edit.</p>
+                </div>
+                <div id="class-buttons-container" class="space-y-4">
+                    <!-- Tombol kelas akan dibuat oleh JS -->
+                </div>
+                <button id="selection-logout-btn" class="mt-8 w-full bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 transition duration-300 font-semibold">Logout</button>
+            </div>
+        </div>
+
+
+        <!-- Dashboard Admin -->
+        <div id="admin-dashboard" class="hidden w-full max-w-6xl">
+            <div class="bg-white p-8 rounded-xl shadow-lg">
+                <header class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b gap-4">
+                    <h2 id="admin-dashboard-title" class="text-2xl font-bold text-gray-700">Dashboard Admin</h2>
+                    <div>
+                        <button id="admin-back-to-selection-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300 text-sm font-medium">Pilih Kelas Lain</button>
+                        <button id="admin-logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300 text-sm font-medium ml-2">Logout</button>
+                    </div>
+                </header>
+                
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Kelola Data Siswa</h3>
+                <div class="bg-gray-50 p-4 rounded-lg mb-8">
+                    <form id="add-student-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label for="student-fullname" class="block text-sm font-medium text-gray-600 mb-1">Nama Lengkap</label>
+                            <input type="text" id="student-fullname" placeholder="Contoh: Budi Santoso" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        </div>
+                        <div>
+                            <label for="student-username" class="block text-sm font-medium text-gray-600 mb-1">Username</label>
+                            <input type="text" id="student-username" placeholder="Contoh: budi" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        </div>
+                        <div>
+                            <label for="student-password" class="block text-sm font-medium text-gray-600 mb-1">Password</label>
+                            <input type="text" id="student-password" placeholder="Password untuk siswa" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        </div>
+                        <button type="submit" class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300 font-semibold text-sm h-10">Tambah Siswa</button>
+                    </form>
+                    <p id="student-form-error" class="text-red-500 text-sm mt-2"></p>
+                    <div class="overflow-x-auto mt-4">
+                        <table class="w-full schedule-table text-sm">
+                             <thead>
+                                <tr>
+                                    <th>Nama Lengkap</th>
+                                    <th>Username</th>
+                                    <th>Password</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="student-list-body">
+                                <!-- Daftar siswa akan di-generate oleh JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Jadwal Pelajaran</h3>
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full schedule-table" id="admin-schedule-table"></table>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Jadwal Piket</h3>
+                 <div class="overflow-x-auto mb-8">
+                    <table class="w-full schedule-table" id="admin-piket-table"></table>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Struktur Organisasi Kelas</h3>
+                <div id="admin-organisasi-container" class="bg-gray-50 p-4 rounded-lg"></div>
+
+                <div class="mt-8 text-right">
+                    <button id="save-schedule-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 font-semibold">Simpan Perubahan Info Kelas</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Siswa -->
+        <div id="student-dashboard" class="hidden w-full max-w-6xl">
+            <div class="bg-white p-8 rounded-xl shadow-lg">
+                 <header class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b gap-4">
+                    <h2 id="student-dashboard-title" class="text-2xl font-bold text-gray-700">Informasi Kelas</h2>
+                    <div>
+                        <button id="student-back-to-selection-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300 text-sm font-medium">Pilih Kelas Lain</button>
+                        <button id="student-logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300 text-sm font-medium ml-2">Logout</button>
+                    </div>
+                </header>
+                <!-- Notifikasi Perubahan Jadwal -->
+                <div id="notification-area" class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md mb-6 hidden" role="alert">
+                  <p class="font-bold">Pemberitahuan</p>
+                  <p id="notification-message">Jadwal dan info kelas ini telah diperbarui oleh admin.</p>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Jadwal Pelajaran</h3>
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full schedule-table" id="student-schedule-table"></table>
+                </div>
+                
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Jadwal Piket</h3>
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full schedule-table" id="student-piket-table"></table>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-600 mb-4">Struktur Organisasi Kelas</h3>
+                <div id="student-organisasi-container" class="bg-gray-50 p-4 rounded-lg"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Container untuk notifikasi toast -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const loginPage = document.getElementById('login-page');
+            const classSelectionPage = document.getElementById('class-selection-page');
+            const adminDashboard = document.getElementById('admin-dashboard');
+            const studentDashboard = document.getElementById('student-dashboard');
+            
+            const loginForm = document.getElementById('login-form');
+            const addStudentForm = document.getElementById('add-student-form');
+            const classButtonsContainer = document.getElementById('class-buttons-container');
+            const loginError = document.getElementById('login-error');
+            const studentFormError = document.getElementById('student-form-error');
+            const selectionLogoutBtn = document.getElementById('selection-logout-btn');
+
+            const adminLogoutBtn = document.getElementById('admin-logout-btn');
+            const studentLogoutBtn = document.getElementById('student-logout-btn');
+            const adminBackToSelectionBtn = document.getElementById('admin-back-to-selection-btn');
+            const studentBackToSelectionBtn = document.getElementById('student-back-to-selection-btn');
+            
+            const saveScheduleBtn = document.getElementById('save-schedule-btn');
+            const adminScheduleTable = document.getElementById('admin-schedule-table');
+            const studentScheduleTable = document.getElementById('student-schedule-table');
+            const adminPiketTable = document.getElementById('admin-piket-table');
+            const studentPiketTable = document.getElementById('student-piket-table');
+            const adminOrganisasiContainer = document.getElementById('admin-organisasi-container');
+            const studentOrganisasiContainer = document.getElementById('student-organisasi-container');
+            const studentListBody = document.getElementById('student-list-body');
+            
+            const adminDashboardTitle = document.getElementById('admin-dashboard-title');
+            const studentDashboardTitle = document.getElementById('student-dashboard-title');
+            const notificationArea = document.getElementById('notification-area');
+            const toastContainer = document.getElementById('toast-container');
+            
+            // --- Default Data Structures ---
+            const initialClassData = {
+                '12 a': {
+                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:00-08:45': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:45-09:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '10:30-11:15': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '13:30-14:15': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '08:00-08:45': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '08:45-09:30': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Matematika', teacher: 'Bu Retno' }, '10:30-11:15': { subject: 'Matematika', teacher: 'Bu Retno' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '08:45-09:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '10:30-11:15': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '11:15-12:00': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:45-09:30': { subject: 'Matematika', teacher: 'Bu Retno' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '13:30-14:15': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
+                    piketData: { 'Senin': 'Andi\nBudi\nCitra\nDeni', 'Selasa': 'Eka\nFita\nGilang\nHana', 'Rabu': 'Indra\nJoko\nKiki\nLina', 'Kamis': 'Mira\nNana\nOscar\nPita', 'Jumat': 'Qori\nRian\nSari\nToni' },
+                    organisasiData: { 'ketua': 'Budi Santoso', 'wakil': 'Citra Lestari', 'bendahara1': 'Deni Setiawan', 'bendahara2': 'Eka Putri', 'sekretaris1': 'Fita Anggraini', 'sekretaris2': 'Gilang Ramadhan', 'kebersihan1': 'Hana Yulita', 'kebersihan2': 'Indra Wijaya', 'kesenian1': 'Joko Susilo', 'kesenian2': 'Kiki Amalia', 'pendidikan1': 'Lina Marlina', 'pendidikan2': 'Mira Anjani' }
+                },
+                '12 b': {
+                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Fisika', teacher: 'Pak Anto' }, '08:00-08:45': { subject: 'Fisika', teacher: 'Pak Anto' }, '08:45-09:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Biologi', teacher: 'Bu Dian' }, '10:30-11:15': { subject: 'Biologi', teacher: 'Bu Dian' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '13:30-14:15': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '08:00-08:45': { subject: 'Geografi', teacher: 'Bu Rina' }, '08:45-09:30': { subject: 'Geografi', teacher: 'Bu Rina' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kimia', teacher: 'Bu Siska' }, '10:30-11:15': { subject: 'Kimia', teacher: 'Bu Siska' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '08:45-09:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Biologi', teacher: 'Bu Dian' }, '10:30-11:15': { subject: 'Biologi', teacher: 'Bu Dian' }, '11:15-12:00': { subject: 'Geografi', teacher: 'Bu Rina' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Kimia', teacher: 'Bu Siska' }, '08:45-09:30': { subject: 'Kimia', teacher: 'Bu Siska' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '13:30-14:15': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
+                    piketData: { 'Senin': 'Ahmad\nBella\nChandra\nDina', 'Selasa': 'Elang\nFarah\nGalih\nHilda', 'Rabu': 'Ivan\nJihan\nKevin\nLia', 'Kamis': 'Mario\nNia\nOmar\nPia', 'Jumat': 'Putra\nRara\nSaka\nTia' },
+                    organisasiData: { 'ketua': 'Doni Mahendra', 'wakil': 'Elsa anindita', 'bendahara1': 'Farhan Nugraha', 'bendahara2': 'Gita Permata', 'sekretaris1': 'Hendra Gunawan', 'sekretaris2': 'Indah Purnama', 'kebersihan1': 'Jamaludin', 'kebersihan2': 'Kartika Sari', 'kesenian1': 'Luthfi Hakim', 'kesenian2': 'Maya Anggraini', 'pendidikan1': 'Naufal Abidin', 'pendidikan2': 'Olivia Putri' }
+                },
+                '12 c': {
+                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '08:00-08:45': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '08:45-09:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '10:30-11:15': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '13:30-14:15': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '08:00-08:45': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '08:45-09:30': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '10:30-11:15': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '08:45-09:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '10:30-11:15': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '11:15-12:00': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '08:45-09:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '13:30-14:15': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
+                    piketData: { 'Senin': 'Ali\nBunga\nCoki\nDona', 'Selasa': 'Egi\nFani\nGani\nHesti', 'Rabu': 'Irfan\nJeni\nKoko\nLala', 'Kamis': 'Maman\nNita\nOpik\nPopy', 'Jumat': 'Rudi\nRina\nSutan\nTina' },
+                    organisasiData: { 'ketua': 'Agung Perkasa', 'wakil': 'Bella Safira', 'bendahara1': 'Candra Wijaya', 'bendahara2': 'Dewi Lestari', 'sekretaris1': 'Eko Prasetyo', 'sekretaris2': 'Fitri Handayani', 'kebersihan1': 'Gilang Pratama', 'kebersihan2': 'Hilda Melati', 'kesenian1': 'Ikhsan Maulana', 'kesenian2': 'Jihan Fahira', 'pendidikan1': 'Kamaludin', 'pendidikan2': 'Lestari Putri' }
+                }
+            };
+
+            // --- Data Handling & Initialization ---
+            let users = JSON.parse(localStorage.getItem('users')) || [
+                { fullname: 'Administrator', username: 'admin', password: '123', role: 'admin' },
+                { fullname: 'Budi Siswoyo', username: 'budi', password: 'budi123', role: 'siswa' },
+                { fullname: 'Citra Kirana', username: 'citra', password: 'citra456', role: 'siswa' }
+            ];
+            
+            let allClassData = JSON.parse(localStorage.getItem('allClassData'));
+            if (!allClassData) {
+                allClassData = JSON.parse(JSON.stringify(initialClassData)); // Deep copy to prevent reference issues
+                localStorage.setItem('allClassData', JSON.stringify(allClassData));
+            }
+
+            // --- Functions ---
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+                toast.className = `notification-toast ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => { toast.remove(); }, 5000);
+            }
+            
+            function renderStudentManagement() {
+                studentListBody.innerHTML = '';
+                users.filter(user => user.role === 'siswa').forEach(student => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="p-2">${student.fullname}</td>
+                        <td class="p-2">${student.username}</td>
+                        <td class="p-2">${student.password}</td>
+                        <td class="p-2">
+                            <button data-username="${student.username}" class="delete-student-btn bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600">Hapus</button>
+                        </td>
+                    `;
+                    studentListBody.appendChild(tr);
+                });
+                // Re-attach event listeners for delete buttons
+                document.querySelectorAll('.delete-student-btn').forEach(btn => {
+                    btn.addEventListener('click', handleDeleteStudent);
+                });
+            }
+
+            function renderSchedule(tableElement, isAdmin, scheduleData) {
+                const days = Object.keys(scheduleData);
+                const times = Object.keys(scheduleData['Senin'] || {}).sort();
+                if (times.length === 0) { tableElement.innerHTML = '<tbody><tr><td class="p-4">Jadwal belum diatur oleh admin.</td></tr></tbody>'; return; }
+                let html = '<thead><tr><th class="w-1/12">Waktu</th>';
+                days.forEach(day => html += `<th>${day}</th>`);
+                html += '</tr></thead><tbody>';
+                times.forEach(time => {
+                    html += `<tr>`;
+                    if (isAdmin) {
+                        html += `<td><input type="text" value="${time}" class="w-full text-center border rounded px-1 font-semibold" data-old-time="${time}"></td>`;
+                    } else {
+                        html += `<td class="font-semibold text-sm">${time}</td>`;
+                    }
+                    days.forEach(day => {
+                        const cellData = scheduleData[day]?.[time] || { subject: '', teacher: '' };
+                        if (isAdmin) {
+                            html += `<td>
+                                <input type="text" value="${cellData.subject}" class="w-full text-center border rounded px-1 text-sm" data-day="${day}" data-time="${time}" data-field="subject" placeholder="Pelajaran">
+                                <input type="text" value="${cellData.teacher}" class="w-full text-center border rounded px-1 mt-1 text-xs text-gray-600" data-day="${day}" data-time="${time}" data-field="teacher" placeholder="Guru">
+                            </td>`;
+                        } else {
+                            html += `<td>
+                                <div class="font-semibold text-sm">${cellData.subject}</div>
+                                <div class="text-xs text-gray-500">${cellData.teacher}</div>
+                            </td>`;
+                        }
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody>';
+                tableElement.innerHTML = html;
+            }
+
+            function renderPiketSchedule(tableElement, isAdmin, piketData) {
+                const days = Object.keys(piketData);
+                let html = '<thead><tr>';
+                days.forEach(day => html += `<th>${day}</th>`);
+                html += '</tr></thead><tbody><tr>';
+                days.forEach(day => {
+                    const names = piketData[day] || '';
+                    if (isAdmin) {
+                        html += `<td><textarea data-day="${day}" class="w-full h-32 p-2 border rounded text-sm text-center">${names}</textarea></td>`;
+                    } else {
+                        html += `<td class="text-sm leading-relaxed">${names.replace(/\n/g, '<br>')}</td>`;
+                    }
+                });
+                html += '</tr></tbody>';
+                tableElement.innerHTML = html;
+            }
+
+            function renderOrganisasi(containerElement, isAdmin, organisasiData) {
+                const positions = [ { id: 'ketua', label: 'Ketua Kelas' }, { id: 'wakil', label: 'Wakil Ketua Kelas' }, { id: 'sekretaris1', label: 'Sekretaris 1' }, { id: 'sekretaris2', label: 'Sekretaris 2' }, { id: 'bendahara1', label: 'Bendahara 1' }, { id: 'bendahara2', label: 'Bendahara 2' }, { id: 'kebersihan1', label: 'Seksi Kebersihan 1' }, { id: 'kebersihan2', label: 'Seksi Kebersihan 2' }, { id: 'kesenian1', label: 'Seksi Kesenian 1' }, { id: 'kesenian2', label: 'Seksi Kesenian 2' }, { id: 'pendidikan1', label: 'Seksi Pendidikan 1' }, { id: 'pendidikan2', label: 'Seksi Pendidikan 2' } ];
+                let html = '<ul class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">';
+                positions.forEach(pos => {
+                    const name = organisasiData[pos.id] || '';
+                    html += `<li class="flex items-center justify-between p-2 border-b">
+                                <span class="font-medium text-gray-600">${pos.label}:</span>`;
+                    if (isAdmin) {
+                        html += `<input type="text" id="org-${pos.id}" value="${name}" class="w-1/2 text-right border rounded px-2 py-1 text-sm">`;
+                    } else {
+                        html += `<span class="text-gray-800 text-sm font-semibold">${name}</span>`;
+                    }
+                    html += `</li>`;
+                });
+                html += '</ul>';
+                containerElement.innerHTML = html;
+            }
+            
+            function showClassSelection(role) {
+                loginPage.classList.add('hidden');
+                adminDashboard.classList.add('hidden');
+                studentDashboard.classList.add('hidden');
+                classSelectionPage.classList.remove('hidden');
+
+                classButtonsContainer.innerHTML = '';
+                const classes = Object.keys(allClassData);
+                classes.forEach(className => {
+                    const button = document.createElement('button');
+                    button.textContent = `Kelas ${className.toUpperCase()}`;
+                    button.className = 'w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition duration-300 font-semibold';
+                    button.onclick = () => handleClassSelection(className, role);
+                    classButtonsContainer.appendChild(button);
+                });
+            }
+
+            function handleClassSelection(className, role) {
+                sessionStorage.setItem('selectedClass', className);
+                const classData = allClassData[className];
+                classSelectionPage.classList.add('hidden');
+                
+                if (role === 'admin') {
+                    adminDashboard.classList.remove('hidden');
+                    adminDashboardTitle.textContent = `Dashboard Admin`;
+                    renderStudentManagement();
+                    renderSchedule(adminScheduleTable, true, classData.scheduleData);
+                    renderPiketSchedule(adminPiketTable, true, classData.piketData);
+                    renderOrganisasi(adminOrganisasiContainer, true, classData.organisasiData);
+                } else {
+                    studentDashboard.classList.remove('hidden');
+                    studentDashboardTitle.textContent = `Informasi Kelas: ${className.toUpperCase()}`;
+                    const scheduleUpdated = localStorage.getItem(`scheduleUpdated_${className}`) === 'true';
+                    if (scheduleUpdated) {
+                        notificationArea.classList.remove('hidden');
+                    } else {
+                        notificationArea.classList.add('hidden');
+                    }
+                    renderSchedule(studentScheduleTable, false, classData.scheduleData);
+                    renderPiketSchedule(studentPiketTable, false, classData.piketData);
+                    renderOrganisasi(studentOrganisasiContainer, false, classData.organisasiData);
+                }
+            }
+            
+            function handleLogin(e) {
+                e.preventDefault();
+                const username = e.target.username.value;
+                const password = e.target.password.value;
+                loginError.textContent = '';
+                const foundUser = users.find(user => user.username === username && user.password === password);
+
+                if (foundUser) {
+                    sessionStorage.setItem('userRole', foundUser.role);
+                    showClassSelection(foundUser.role);
+                } else {
+                    loginError.textContent = 'Username atau password salah!';
+                }
+            }
+
+            function handleAddStudent(e) {
+                e.preventDefault();
+                studentFormError.textContent = '';
+                const fullname = document.getElementById('student-fullname').value.trim();
+                const username = document.getElementById('student-username').value.trim();
+                const password = document.getElementById('student-password').value.trim();
+
+                if (!fullname || !username || !password) {
+                    studentFormError.textContent = 'Semua kolom wajib diisi.';
+                    return;
+                }
+                if (users.find(user => user.username === username)) {
+                    studentFormError.textContent = 'Username sudah digunakan.';
+                    return;
+                }
+                
+                users.push({ fullname, username, password, role: 'siswa' });
+                localStorage.setItem('users', JSON.stringify(users));
+                renderStudentManagement();
+                addStudentForm.reset();
+                showToast('Siswa baru berhasil ditambahkan.');
+            }
+
+            function handleDeleteStudent(e) {
+                const usernameToDelete = e.target.dataset.username;
+                users = users.filter(user => user.username !== usernameToDelete);
+                localStorage.setItem('users', JSON.stringify(users));
+                renderStudentManagement();
+                showToast('Data siswa berhasil dihapus.');
+            }
+            
+            function handleLogout() {
+                sessionStorage.removeItem('userRole');
+                sessionStorage.removeItem('selectedClass');
+                adminDashboard.classList.add('hidden');
+                studentDashboard.classList.add('hidden');
+                classSelectionPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+                loginForm.reset();
+            }
+
+            function handleSaveAllData() {
+                const selectedClass = sessionStorage.getItem('selectedClass');
+                if (!selectedClass) {
+                    showToast('Kelas tidak ditemukan!', 'error');
+                    return;
+                }
+                const currentScheduleData = allClassData[selectedClass].scheduleData;
+                const newScheduleData = {};
+                const scheduleDays = Object.keys(currentScheduleData);
+                const scheduleRows = adminScheduleTable.querySelectorAll('tbody tr');
+                scheduleRows.forEach(row => {
+                    const timeInput = row.querySelector('td:first-child input');
+                    const oldTime = timeInput.dataset.oldTime;
+                    const newTime = timeInput.value.trim();
+                    scheduleDays.forEach(day => {
+                        if (!newScheduleData[day]) newScheduleData[day] = {};
+                        const subjectInput = row.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="subject"]`);
+                        const teacherInput = row.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="teacher"]`);
+                        if (subjectInput && teacherInput) {
+                            newScheduleData[day][newTime] = { subject: subjectInput.value, teacher: teacherInput.value };
+                        }
+                    });
+                });
+                allClassData[selectedClass].scheduleData = newScheduleData;
+
+                const newPiketData = {};
+                adminPiketTable.querySelectorAll('textarea').forEach(input => { newPiketData[input.dataset.day] = input.value; });
+                allClassData[selectedClass].piketData = newPiketData;
+
+                const newOrganisasiData = {};
+                adminOrganisasiContainer.querySelectorAll('input[type="text"]').forEach(input => { newOrganisasiData[input.id.replace('org-', '')] = input.value; });
+                allClassData[selectedClass].organisasiData = newOrganisasiData;
+                
+                localStorage.setItem('allClassData', JSON.stringify(allClassData));
+                localStorage.setItem(`scheduleUpdated_${selectedClass}`, 'true');
+                showToast(`Info untuk Kelas ${selectedClass.toUpperCase()} berhasil disimpan!`);
+                handleClassSelection(selectedClass, 'admin');
+            }
+
+            // --- Event Listeners ---
+            const backToSelection = () => {
+                const role = sessionStorage.getItem('userRole');
+                if (role) {
+                    adminDashboard.classList.add('hidden');
+                    studentDashboard.classList.add('hidden');
+                    showClassSelection(role);
+                }
+            };
+            adminBackToSelectionBtn.addEventListener('click', backToSelection);
+            studentBackToSelectionBtn.addEventListener('click', backToSelection);
+
+            loginForm.addEventListener('submit', handleLogin);
+            addStudentForm.addEventListener('submit', handleAddStudent);
+            adminLogoutBtn.addEventListener('click', handleLogout);
+            studentLogoutBtn.addEventListener('click', handleLogout);
+            selectionLogoutBtn.addEventListener('click', handleLogout);
+            saveScheduleBtn.addEventListener('click', handleSaveAllData);
+        });
+    </script>
+</body>
+</html>

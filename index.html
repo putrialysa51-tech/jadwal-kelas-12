@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Impor Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -124,7 +126,7 @@
                     <p id="student-form-error" class="text-red-500 text-sm mt-2"></p>
                     <div class="overflow-x-auto mt-4">
                         <table class="w-full schedule-table text-sm">
-                             <thead>
+                              <thead>
                                 <tr>
                                     <th>Nama Lengkap</th>
                                     <th>Username</th>
@@ -172,7 +174,7 @@
                 <!-- Notifikasi Perubahan Jadwal -->
                 <div id="notification-area" class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md mb-6 hidden" role="alert">
                   <p class="font-bold">Pemberitahuan</p>
-                  <p id="notification-message">Jadwal dan info kelas ini telah diperbarui oleh admin.</p>
+                  <p id="notification-message">Jadwal dan info kelas ini baru saja diperbarui oleh admin.</p>
                 </div>
 
                 <h3 class="text-xl font-semibold text-gray-600 mb-4">Jadwal Pelajaran</h3>
@@ -197,24 +199,35 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- GANTI DENGAN KUNCI SUPABASE ANDA ---
+            const SUPABASE_URL = 'https://uhywvvlofvmdnmjwdmcu.supabase.co'; // Ganti dengan URL Proyek Anda
+            
+            // KUNCI SEBELUMNYA TIDAK VALID. HARAP SALIN KEMBALI KUNCI DARI DASHBOARD SUPABASE ANDA.
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoeXd2dmxvZnZtZG5tandkbWN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Nzk5NzAsImV4cCI6MjA3NjA1NTk3MH0.OUUFKGviz-qqLcS6kVkX0HEZcFPJ_Rj3OJQhUBg1jeg'; // Ganti dengan Kunci Anon Anda
+            
+            // --- State Aplikasi ---
+            let db; // Akan diinisialisasi nanti
+            const { createClient } = supabase;
+            let currentUser = null;
+            let currentClass = null;
+            let realtimeChannel = null;
+
             // --- DOM Elements ---
+            const appContainer = document.getElementById('app-container');
             const loginPage = document.getElementById('login-page');
             const classSelectionPage = document.getElementById('class-selection-page');
             const adminDashboard = document.getElementById('admin-dashboard');
             const studentDashboard = document.getElementById('student-dashboard');
-            
             const loginForm = document.getElementById('login-form');
             const addStudentForm = document.getElementById('add-student-form');
             const classButtonsContainer = document.getElementById('class-buttons-container');
             const loginError = document.getElementById('login-error');
             const studentFormError = document.getElementById('student-form-error');
             const selectionLogoutBtn = document.getElementById('selection-logout-btn');
-
             const adminLogoutBtn = document.getElementById('admin-logout-btn');
             const studentLogoutBtn = document.getElementById('student-logout-btn');
             const adminBackToSelectionBtn = document.getElementById('admin-back-to-selection-btn');
             const studentBackToSelectionBtn = document.getElementById('student-back-to-selection-btn');
-            
             const saveScheduleBtn = document.getElementById('save-schedule-btn');
             const adminScheduleTable = document.getElementById('admin-schedule-table');
             const studentScheduleTable = document.getElementById('student-schedule-table');
@@ -223,43 +236,10 @@
             const adminOrganisasiContainer = document.getElementById('admin-organisasi-container');
             const studentOrganisasiContainer = document.getElementById('student-organisasi-container');
             const studentListBody = document.getElementById('student-list-body');
-            
             const adminDashboardTitle = document.getElementById('admin-dashboard-title');
             const studentDashboardTitle = document.getElementById('student-dashboard-title');
             const notificationArea = document.getElementById('notification-area');
             const toastContainer = document.getElementById('toast-container');
-            
-            // --- Default Data Structures ---
-            const initialClassData = {
-                '12 a': {
-                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:00-08:45': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:45-09:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '10:30-11:15': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '13:30-14:15': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '08:00-08:45': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '08:45-09:30': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Matematika', teacher: 'Bu Retno' }, '10:30-11:15': { subject: 'Matematika', teacher: 'Bu Retno' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '08:45-09:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '10:30-11:15': { subject: 'IPA Terpadu', teacher: 'Pak Agus' }, '11:15-12:00': { subject: 'IPS Terpadu', teacher: 'Bu Tika' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Matematika', teacher: 'Bu Retno' }, '08:45-09:30': { subject: 'Matematika', teacher: 'Bu Retno' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Sarah' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '13:30-14:15': { subject: 'Bahasa Indonesia', teacher: 'Pak Budi' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Seni Budaya', teacher: 'Pak Eko' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
-                    piketData: { 'Senin': 'Andi\nBudi\nCitra\nDeni', 'Selasa': 'Eka\nFita\nGilang\nHana', 'Rabu': 'Indra\nJoko\nKiki\nLina', 'Kamis': 'Mira\nNana\nOscar\nPita', 'Jumat': 'Qori\nRian\nSari\nToni' },
-                    organisasiData: { 'ketua': 'Budi Santoso', 'wakil': 'Citra Lestari', 'bendahara1': 'Deni Setiawan', 'bendahara2': 'Eka Putri', 'sekretaris1': 'Fita Anggraini', 'sekretaris2': 'Gilang Ramadhan', 'kebersihan1': 'Hana Yulita', 'kebersihan2': 'Indra Wijaya', 'kesenian1': 'Joko Susilo', 'kesenian2': 'Kiki Amalia', 'pendidikan1': 'Lina Marlina', 'pendidikan2': 'Mira Anjani' }
-                },
-                '12 b': {
-                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Fisika', teacher: 'Pak Anto' }, '08:00-08:45': { subject: 'Fisika', teacher: 'Pak Anto' }, '08:45-09:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Biologi', teacher: 'Bu Dian' }, '10:30-11:15': { subject: 'Biologi', teacher: 'Bu Dian' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '13:30-14:15': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '08:00-08:45': { subject: 'Geografi', teacher: 'Bu Rina' }, '08:45-09:30': { subject: 'Geografi', teacher: 'Bu Rina' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kimia', teacher: 'Bu Siska' }, '10:30-11:15': { subject: 'Kimia', teacher: 'Bu Siska' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '08:45-09:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Biologi', teacher: 'Bu Dian' }, '10:30-11:15': { subject: 'Biologi', teacher: 'Bu Dian' }, '11:15-12:00': { subject: 'Geografi', teacher: 'Bu Rina' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Kimia', teacher: 'Bu Siska' }, '08:45-09:30': { subject: 'Kimia', teacher: 'Bu Siska' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Mr. John' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '13:30-14:15': { subject: 'Bahasa Jepang', teacher: 'Bu Yuli' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Sejarah', teacher: 'Pak Guntur' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
-                    piketData: { 'Senin': 'Ahmad\nBella\nChandra\nDina', 'Selasa': 'Elang\nFarah\nGalih\nHilda', 'Rabu': 'Ivan\nJihan\nKevin\nLia', 'Kamis': 'Mario\nNia\nOmar\nPia', 'Jumat': 'Putra\nRara\nSaka\nTia' },
-                    organisasiData: { 'ketua': 'Doni Mahendra', 'wakil': 'Elsa anindita', 'bendahara1': 'Farhan Nugraha', 'bendahara2': 'Gita Permata', 'sekretaris1': 'Hendra Gunawan', 'sekretaris2': 'Indah Purnama', 'kebersihan1': 'Jamaludin', 'kebersihan2': 'Kartika Sari', 'kesenian1': 'Luthfi Hakim', 'kesenian2': 'Maya Anggraini', 'pendidikan1': 'Naufal Abidin', 'pendidikan2': 'Olivia Putri' }
-                },
-                '12 c': {
-                    scheduleData: { 'Senin': { '06:30-07:15': { subject: 'Upacara', teacher: 'Pembina' }, '07:15-08:00': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '08:00-08:45': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '08:45-09:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '10:30-11:15': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '11:15-12:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '13:30-14:15': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '14:15-15:00': { subject: 'Ekstrakurikuler', teacher: 'Pembina' } }, 'Selasa': { '06:30-07:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '07:15-08:00': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '08:00-08:45': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '08:45-09:30': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '10:30-11:15': { subject: 'Sosiologi', teacher: 'Bu Wati' }, '11:15-12:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'TIK', teacher: 'Pak Wawan' }, '13:30-14:15': { subject: 'TIK', teacher: 'Pak Wawan' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Rabu': { '06:30-07:15': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '07:15-08:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '08:00-08:45': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '08:45-09:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '10:30-11:15': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '11:15-12:00': { subject: 'Akuntansi', teacher: 'Bu Laras' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '13:30-14:15': { subject: 'Bimbingan Konseling', teacher: 'Bu Sari' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Kamis': { '06:30-07:15': { subject: 'Agama', teacher: 'Pak Rahmat' }, '07:15-08:00': { subject: 'Agama', teacher: 'Pak Rahmat' }, '08:00-08:45': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '08:45-09:30': { subject: 'Ekonomi', teacher: 'Pak Jaya' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '10:30-11:15': { subject: 'Bahasa Inggris', teacher: 'Ms. Anne' }, '11:15-12:00': { subject: 'Penjaskes', teacher: 'Pak Doni' }, '12:00-12:45': { subject: 'Istirahat & Sholat', teacher: '-' }, '12:45-13:30': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '13:30-14:15': { subject: 'Bahasa Mandarin', teacher: 'Lao shi Mei' }, '14:15-15:00': { subject: 'Kosong', teacher: '-' } }, 'Jumat': { '06:30-07:15': { subject: 'Kegiatan Rohani', teacher: 'Pembina' }, '07:15-08:00': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:00-08:45': { subject: 'TIK', teacher: 'Pak Wawan' }, '08:45-09:30': { subject: 'Prakarya', teacher: 'Pak Tejo' }, '09:30-09:45': { subject: 'Istirahat', teacher: '-' }, '09:45-10:30': { subject: 'Kosong', teacher: '-' }, '10:30-11:15': { subject: 'Kosong', teacher: '-' }, '11:15-12:00': { subject: 'Sholat Jumat', teacher: '-' }, '12:00-12:45': { subject: 'Sholat Jumat', teacher: '-' }, '12:45-13:30': { subject: 'Pramuka', teacher: 'Pembina' }, '13:30-14:15': { subject: 'Pramuka', teacher: 'Pembina' }, '14:15-15:00': { subject: 'Pramuka', teacher: 'Pembina' } } },
-                    piketData: { 'Senin': 'Ali\nBunga\nCoki\nDona', 'Selasa': 'Egi\nFani\nGani\nHesti', 'Rabu': 'Irfan\nJeni\nKoko\nLala', 'Kamis': 'Maman\nNita\nOpik\nPopy', 'Jumat': 'Rudi\nRina\nSutan\nTina' },
-                    organisasiData: { 'ketua': 'Agung Perkasa', 'wakil': 'Bella Safira', 'bendahara1': 'Candra Wijaya', 'bendahara2': 'Dewi Lestari', 'sekretaris1': 'Eko Prasetyo', 'sekretaris2': 'Fitri Handayani', 'kebersihan1': 'Gilang Pratama', 'kebersihan2': 'Hilda Melati', 'kesenian1': 'Ikhsan Maulana', 'kesenian2': 'Jihan Fahira', 'pendidikan1': 'Kamaludin', 'pendidikan2': 'Lestari Putri' }
-                }
-            };
-
-            // --- Data Handling & Initialization ---
-            let users = JSON.parse(localStorage.getItem('users')) || [
-                { fullname: 'Administrator', username: 'admin', password: '123', role: 'admin' },
-                { fullname: 'Budi Siswoyo', username: 'budi', password: 'budi123', role: 'siswa' },
-                { fullname: 'Citra Kirana', username: 'citra', password: 'citra456', role: 'siswa' }
-            ];
-            
-            let allClassData = JSON.parse(localStorage.getItem('allClassData'));
-            if (!allClassData) {
-                allClassData = JSON.parse(JSON.stringify(initialClassData)); // Deep copy to prevent reference issues
-                localStorage.setItem('allClassData', JSON.stringify(allClassData));
-            }
 
             // --- Functions ---
             function showToast(message, type = 'success') {
@@ -271,37 +251,49 @@
                 setTimeout(() => { toast.remove(); }, 5000);
             }
             
-            function renderStudentManagement() {
+            async function renderStudentManagement() {
+                studentListBody.innerHTML = '<tr><td colspan="4" class="p-4">Memuat data...</td></tr>';
+                const { data: students, error } = await db.from('users').select('*').eq('role', 'siswa');
+                if (error) {
+                    showToast('Gagal memuat data siswa.', 'error');
+                    console.error(error);
+                    return;
+                }
                 studentListBody.innerHTML = '';
-                users.filter(user => user.role === 'siswa').forEach(student => {
+                students.forEach(student => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td class="p-2">${student.fullname}</td>
-                        <td class="p-2">${student.username}</td>
-                        <td class="p-2">${student.password}</td>
-                        <td class="p-2">
+                        <td class="p-2 border">${student.fullname}</td>
+                        <td class="p-2 border">${student.username}</td>
+                        <td class="p-2 border">${student.password}</td>
+                        <td class="p-2 border">
                             <button data-username="${student.username}" class="delete-student-btn bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600">Hapus</button>
                         </td>
                     `;
                     studentListBody.appendChild(tr);
                 });
-                // Re-attach event listeners for delete buttons
                 document.querySelectorAll('.delete-student-btn').forEach(btn => {
                     btn.addEventListener('click', handleDeleteStudent);
                 });
             }
 
             function renderSchedule(tableElement, isAdmin, scheduleData) {
+                if (!scheduleData) {
+                     tableElement.innerHTML = '<tbody><tr><td class="p-4">Data jadwal tidak tersedia.</td></tr></tbody>'; return;
+                }
                 const days = Object.keys(scheduleData);
-                const times = Object.keys(scheduleData['Senin'] || {}).sort();
-                if (times.length === 0) { tableElement.innerHTML = '<tbody><tr><td class="p-4">Jadwal belum diatur oleh admin.</td></tr></tbody>'; return; }
+                if (days.length === 0) {
+                    tableElement.innerHTML = '<tbody><tr><td class="p-4">Jadwal belum diatur.</td></tr></tbody>'; return;
+                }
+                const times = Object.keys(scheduleData[days[0]] || {}).sort();
+                if (times.length === 0) { tableElement.innerHTML = '<tbody><tr><td class="p-4">Jadwal belum diatur.</td></tr></tbody>'; return; }
                 let html = '<thead><tr><th class="w-1/12">Waktu</th>';
                 days.forEach(day => html += `<th>${day}</th>`);
                 html += '</tr></thead><tbody>';
                 times.forEach(time => {
                     html += `<tr>`;
                     if (isAdmin) {
-                        html += `<td><input type="text" value="${time}" class="w-full text-center border rounded px-1 font-semibold" data-old-time="${time}"></td>`;
+                        html += `<td><input type="text" value="${time}" class="w-full text-center border rounded px-1 font-semibold text-sm" data-old-time="${time}"></td>`;
                     } else {
                         html += `<td class="font-semibold text-sm">${time}</td>`;
                     }
@@ -326,6 +318,9 @@
             }
 
             function renderPiketSchedule(tableElement, isAdmin, piketData) {
+                 if (!piketData) {
+                     tableElement.innerHTML = '<tbody><tr><td class="p-4">Data piket tidak tersedia.</td></tr></tbody>'; return;
+                }
                 const days = Object.keys(piketData);
                 let html = '<thead><tr>';
                 days.forEach(day => html += `<th>${day}</th>`);
@@ -343,181 +338,291 @@
             }
 
             function renderOrganisasi(containerElement, isAdmin, organisasiData) {
-                const positions = [ { id: 'ketua', label: 'Ketua Kelas' }, { id: 'wakil', label: 'Wakil Ketua Kelas' }, { id: 'sekretaris1', label: 'Sekretaris 1' }, { id: 'sekretaris2', label: 'Sekretaris 2' }, { id: 'bendahara1', label: 'Bendahara 1' }, { id: 'bendahara2', label: 'Bendahara 2' }, { id: 'kebersihan1', label: 'Seksi Kebersihan 1' }, { id: 'kebersihan2', label: 'Seksi Kebersihan 2' }, { id: 'kesenian1', label: 'Seksi Kesenian 1' }, { id: 'kesenian2', label: 'Seksi Kesenian 2' }, { id: 'pendidikan1', label: 'Seksi Pendidikan 1' }, { id: 'pendidikan2', label: 'Seksi Pendidikan 2' } ];
-                let html = '<ul class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">';
+                 if (!organisasiData) {
+                     containerElement.innerHTML = '<p>Data organisasi tidak tersedia.</p>'; return;
+                }
+                const positions = [ { id: 'ketua', label: 'Ketua Kelas' }, { id: 'wakil', label: 'Wakil Ketua Kelas' }, { id: 'sekretaris1', label: 'Sekretaris 1' }, { id: 'sekretaris2', label: 'Sekretaris 2' }, { id: 'bendahara1', label: 'Bendahara 1' }, { id: 'bendahara2', label: 'Bendahara 2' }, { id: 'kesenian1', label: 'Seksi Kesenian 1' }, { id: 'kesenian2', label: 'Seksi Kesenian 2' }, { id: 'pendidikan1', label: 'Seksi Pendidikan 1' }, { id: 'pendidikan2', label: 'Seksi Pendidikan 2' }, { id: 'kebersihan1', label: 'Seksi Kebersihan 1' }, { id: 'kebersihan2', label: 'Seksi Kebersihan 2' }];
+                let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
                 positions.forEach(pos => {
                     const name = organisasiData[pos.id] || '';
-                    html += `<li class="flex items-center justify-between p-2 border-b">
-                                <span class="font-medium text-gray-600">${pos.label}:</span>`;
+                    html += `<div class="bg-white p-3 rounded-lg border">`;
                     if (isAdmin) {
-                        html += `<input type="text" id="org-${pos.id}" value="${name}" class="w-1/2 text-right border rounded px-2 py-1 text-sm">`;
+                        html += `
+                            <label for="org-${pos.id}" class="block text-sm font-medium text-gray-600">${pos.label}</label>
+                            <input type="text" id="org-${pos.id}" data-position="${pos.id}" value="${name}" class="mt-1 w-full px-2 py-1 border border-gray-300 rounded-md text-sm">
+                        `;
                     } else {
-                        html += `<span class="text-gray-800 text-sm font-semibold">${name}</span>`;
+                        html += `
+                            <p class="text-sm font-medium text-gray-600">${pos.label}</p>
+                            <p class="font-semibold text-gray-800">${name || '-'}</p>
+                        `;
                     }
-                    html += `</li>`;
+                    html += `</div>`;
                 });
-                html += '</ul>';
+                html += '</div>';
                 containerElement.innerHTML = html;
             }
+
+            async function saveAdminChanges() {
+                if (!currentClass) return;
+                
+                // Construct data objects from form inputs
+                const newScheduleData = {};
+                const newPiketData = {};
+                const newOrganisasiData = {};
+                
+                const days = Object.keys(currentClass.data.schedule_data);
+                const timeInputs = adminScheduleTable.querySelectorAll('input[data-old-time]');
+                timeInputs.forEach(timeInput => {
+                    const oldTime = timeInput.dataset.oldTime;
+                    const newTime = timeInput.value.trim();
+                    if (!newTime) return;
+                    days.forEach(day => {
+                        const subjectInput = adminScheduleTable.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="subject"]`);
+                        const teacherInput = adminScheduleTable.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="teacher"]`);
+                        if (subjectInput && teacherInput) {
+                            if (!newScheduleData[day]) newScheduleData[day] = {};
+                            newScheduleData[day][newTime] = { subject: subjectInput.value, teacher: teacherInput.value };
+                        }
+                    });
+                });
+                adminPiketTable.querySelectorAll('textarea').forEach(textarea => { newPiketData[textarea.dataset.day] = textarea.value; });
+                adminOrganisasiContainer.querySelectorAll('input').forEach(input => { newOrganisasiData[input.dataset.position] = input.value; });
+
+                // Update data in Supabase
+                const { error } = await db.from('class_data')
+                    .update({
+                        schedule_data: newScheduleData,
+                        piket_data: newPiketData,
+                        organization_data: newOrganisasiData
+                    })
+                    .eq('class_id', currentClass.id);
+
+                if (error) {
+                    showToast('Gagal menyimpan perubahan.', 'error');
+                    console.error(error);
+                } else {
+                    showToast('Perubahan berhasil disimpan!');
+                    // Update local state to reflect changes immediately
+                    currentClass.data.schedule_data = newScheduleData;
+                    currentClass.data.piket_data = newPiketData;
+                    currentClass.data.organization_data = newOrganisasiData;
+                }
+            }
             
-            function showClassSelection(role) {
-                loginPage.classList.add('hidden');
-                adminDashboard.classList.add('hidden');
-                studentDashboard.classList.add('hidden');
-                classSelectionPage.classList.remove('hidden');
+            function showPage(page) {
+                [loginPage, classSelectionPage, adminDashboard, studentDashboard].forEach(p => p.classList.add('hidden'));
+                if (page) page.classList.remove('hidden');
+            }
+            
+            async function logout() {
+                if (realtimeChannel) {
+                    await db.removeChannel(realtimeChannel);
+                    realtimeChannel = null;
+                }
+                currentUser = null;
+                currentClass = null;
+                sessionStorage.clear();
+                showPage(loginPage);
+            }
+            
+            async function showDashboard(classInfo) {
+                currentClass = classInfo;
+                sessionStorage.setItem('selectedClassId', classInfo.id);
+
+                // Fetch the detailed class data
+                const { data, error } = await db.from('class_data')
+                    .select('*')
+                    .eq('class_id', classInfo.id)
+                    .single(); // We expect only one row
+
+                if (error || !data) {
+                    // Cek error spesifik jika tabel tidak ditemukan
+                    if (error && error.code === 'PGRST205') {
+                        appContainer.innerHTML = `
+                            <div class="bg-white p-8 rounded-xl shadow-lg text-center">
+                                <h1 class="text-2xl font-bold text-red-600 mb-4">Error: Tabel Tidak Ditemukan</h1>
+                                <p class="text-gray-700 mb-2">Aplikasi tidak dapat menemukan tabel <code class="bg-gray-200 p-1 rounded">'class_data'</code> di database Anda.</p>
+                                <p class="text-gray-700">Pastikan Anda telah menjalankan skrip SQL dari file <code class="bg-gray-200 p-1 rounded">supabase_setup_guide.md</code> di <strong>SQL Editor</strong> Supabase untuk membuat semua tabel yang diperlukan.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    showToast('Gagal memuat data kelas.', 'error');
+                    console.error(error);
+                    return;
+                }
+                currentClass.data = data; // Store detailed data
+
+                if (currentUser.role === 'admin') {
+                    adminDashboardTitle.textContent = `Dashboard Admin - Kelas ${classInfo.name.toUpperCase()}`;
+                    await renderStudentManagement();
+                    renderSchedule(adminScheduleTable, true, data.schedule_data);
+                    renderPiketSchedule(adminPiketTable, true, data.piket_data);
+                    renderOrganisasi(adminOrganisasiContainer, true, data.organization_data);
+                    showPage(adminDashboard);
+                } else {
+                    studentDashboardTitle.textContent = `Informasi Kelas ${classInfo.name.toUpperCase()}`;
+                    renderSchedule(studentScheduleTable, false, data.schedule_data);
+                    renderPiketSchedule(studentPiketTable, false, data.piket_data);
+                    renderOrganisasi(studentOrganisasiContainer, false, data.organization_data);
+                    // Setup realtime listener
+                    subscribeToChanges(classInfo.id);
+                    showPage(studentDashboard);
+                }
+            }
+            
+            async function showClassSelection() {
+                if (realtimeChannel) {
+                    await db.removeChannel(realtimeChannel);
+                    realtimeChannel = null;
+                }
+                currentClass = null;
+                sessionStorage.removeItem('selectedClassId');
+                notificationArea.classList.add('hidden');
+                classButtonsContainer.innerHTML = '<p>Memuat kelas...</p>';
+                
+                const { data: classes, error } = await db.from('classes').select('*');
+                if (error) {
+                    showToast('Gagal memuat daftar kelas.', 'error');
+                    console.error(error);
+                    return;
+                }
 
                 classButtonsContainer.innerHTML = '';
-                const classes = Object.keys(allClassData);
-                classes.forEach(className => {
+                classes.forEach(cls => {
                     const button = document.createElement('button');
-                    button.textContent = `Kelas ${className.toUpperCase()}`;
-                    button.className = 'w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition duration-300 font-semibold';
-                    button.onclick = () => handleClassSelection(className, role);
+                    button.textContent = `Kelas ${cls.name.toUpperCase()}`;
+                    button.className = 'w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300 font-semibold';
+                    button.addEventListener('click', () => showDashboard(cls));
                     classButtonsContainer.appendChild(button);
                 });
+                showPage(classSelectionPage);
             }
 
-            function handleClassSelection(className, role) {
-                sessionStorage.setItem('selectedClass', className);
-                const classData = allClassData[className];
-                classSelectionPage.classList.add('hidden');
+            function subscribeToChanges(classId) {
+                // Unsubscribe from any previous channel first
+                if (realtimeChannel) db.removeChannel(realtimeChannel);
                 
-                if (role === 'admin') {
-                    adminDashboard.classList.remove('hidden');
-                    adminDashboardTitle.textContent = `Dashboard Admin`;
-                    renderStudentManagement();
-                    renderSchedule(adminScheduleTable, true, classData.scheduleData);
-                    renderPiketSchedule(adminPiketTable, true, classData.piketData);
-                    renderOrganisasi(adminOrganisasiContainer, true, classData.organisasiData);
-                } else {
-                    studentDashboard.classList.remove('hidden');
-                    studentDashboardTitle.textContent = `Informasi Kelas: ${className.toUpperCase()}`;
-                    const scheduleUpdated = localStorage.getItem(`scheduleUpdated_${className}`) === 'true';
-                    if (scheduleUpdated) {
+                realtimeChannel = db.channel(`class_data_${classId}`)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'class_data', filter: `class_id=eq.${classId}` }, payload => {
+                        console.log('Perubahan terdeteksi:', payload.new);
                         notificationArea.classList.remove('hidden');
-                    } else {
-                        notificationArea.classList.add('hidden');
-                    }
-                    renderSchedule(studentScheduleTable, false, classData.scheduleData);
-                    renderPiketSchedule(studentPiketTable, false, classData.piketData);
-                    renderOrganisasi(studentOrganisasiContainer, false, classData.organisasiData);
-                }
-            }
-            
-            function handleLogin(e) {
-                e.preventDefault();
-                const username = e.target.username.value;
-                const password = e.target.password.value;
-                loginError.textContent = '';
-                const foundUser = users.find(user => user.username === username && user.password === password);
+                        showToast('Informasi kelas telah diperbarui!');
+                        
+                        // Update UI with new data
+                        const newData = payload.new;
+                        currentClass.data = newData; // Update local state
+                        renderSchedule(studentScheduleTable, false, newData.schedule_data);
+                        renderPiketSchedule(studentPiketTable, false, newData.piket_data);
+                        renderOrganisasi(studentOrganisasiContainer, false, newData.organization_data);
 
-                if (foundUser) {
-                    sessionStorage.setItem('userRole', foundUser.role);
-                    showClassSelection(foundUser.role);
-                } else {
-                    loginError.textContent = 'Username atau password salah!';
-                }
+                    })
+                    .subscribe();
             }
 
-            function handleAddStudent(e) {
-                e.preventDefault();
+            async function handleAddStudent(event) {
+                event.preventDefault();
                 studentFormError.textContent = '';
                 const fullname = document.getElementById('student-fullname').value.trim();
                 const username = document.getElementById('student-username').value.trim();
                 const password = document.getElementById('student-password').value.trim();
 
                 if (!fullname || !username || !password) {
-                    studentFormError.textContent = 'Semua kolom wajib diisi.';
-                    return;
+                    studentFormError.textContent = 'Semua field harus diisi.'; return;
                 }
-                if (users.find(user => user.username === username)) {
-                    studentFormError.textContent = 'Username sudah digunakan.';
-                    return;
+
+                const { error } = await db.from('users').insert([{ fullname, username, password, role: 'siswa' }]);
+                if (error) {
+                    if (error.code === '23505') { // Unique constraint violation
+                        studentFormError.textContent = 'Username sudah digunakan.';
+                    } else {
+                        studentFormError.textContent = 'Gagal menambahkan siswa.';
+                        console.error(error);
+                    }
+                } else {
+                    showToast('Siswa baru berhasil ditambahkan.');
+                    addStudentForm.reset();
+                    await renderStudentManagement();
                 }
-                
-                users.push({ fullname, username, password, role: 'siswa' });
-                localStorage.setItem('users', JSON.stringify(users));
-                renderStudentManagement();
-                addStudentForm.reset();
-                showToast('Siswa baru berhasil ditambahkan.');
             }
 
-            function handleDeleteStudent(e) {
-                const usernameToDelete = e.target.dataset.username;
-                users = users.filter(user => user.username !== usernameToDelete);
-                localStorage.setItem('users', JSON.stringify(users));
-                renderStudentManagement();
-                showToast('Data siswa berhasil dihapus.');
-            }
-            
-            function handleLogout() {
-                sessionStorage.removeItem('userRole');
-                sessionStorage.removeItem('selectedClass');
-                adminDashboard.classList.add('hidden');
-                studentDashboard.classList.add('hidden');
-                classSelectionPage.classList.add('hidden');
-                loginPage.classList.remove('hidden');
-                loginForm.reset();
-            }
-
-            function handleSaveAllData() {
-                const selectedClass = sessionStorage.getItem('selectedClass');
-                if (!selectedClass) {
-                    showToast('Kelas tidak ditemukan!', 'error');
-                    return;
+            async function handleDeleteStudent(event) {
+                const usernameToDelete = event.target.dataset.username;
+                const { error } = await db.from('users').delete().eq('username', usernameToDelete);
+                if (error) {
+                    showToast('Gagal menghapus siswa.', 'error');
+                    console.error(error);
+                } else {
+                    showToast('Data siswa berhasil dihapus.');
+                    await renderStudentManagement();
                 }
-                const currentScheduleData = allClassData[selectedClass].scheduleData;
-                const newScheduleData = {};
-                const scheduleDays = Object.keys(currentScheduleData);
-                const scheduleRows = adminScheduleTable.querySelectorAll('tbody tr');
-                scheduleRows.forEach(row => {
-                    const timeInput = row.querySelector('td:first-child input');
-                    const oldTime = timeInput.dataset.oldTime;
-                    const newTime = timeInput.value.trim();
-                    scheduleDays.forEach(day => {
-                        if (!newScheduleData[day]) newScheduleData[day] = {};
-                        const subjectInput = row.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="subject"]`);
-                        const teacherInput = row.querySelector(`input[data-day="${day}"][data-time="${oldTime}"][data-field="teacher"]`);
-                        if (subjectInput && teacherInput) {
-                            newScheduleData[day][newTime] = { subject: subjectInput.value, teacher: teacherInput.value };
-                        }
-                    });
-                });
-                allClassData[selectedClass].scheduleData = newScheduleData;
-
-                const newPiketData = {};
-                adminPiketTable.querySelectorAll('textarea').forEach(input => { newPiketData[input.dataset.day] = input.value; });
-                allClassData[selectedClass].piketData = newPiketData;
-
-                const newOrganisasiData = {};
-                adminOrganisasiContainer.querySelectorAll('input[type="text"]').forEach(input => { newOrganisasiData[input.id.replace('org-', '')] = input.value; });
-                allClassData[selectedClass].organisasiData = newOrganisasiData;
-                
-                localStorage.setItem('allClassData', JSON.stringify(allClassData));
-                localStorage.setItem(`scheduleUpdated_${selectedClass}`, 'true');
-                showToast(`Info untuk Kelas ${selectedClass.toUpperCase()} berhasil disimpan!`);
-                handleClassSelection(selectedClass, 'admin');
             }
 
             // --- Event Listeners ---
-            const backToSelection = () => {
-                const role = sessionStorage.getItem('userRole');
-                if (role) {
-                    adminDashboard.classList.add('hidden');
-                    studentDashboard.classList.add('hidden');
-                    showClassSelection(role);
-                }
-            };
-            adminBackToSelectionBtn.addEventListener('click', backToSelection);
-            studentBackToSelectionBtn.addEventListener('click', backToSelection);
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = e.target.username.value;
+                const password = e.target.password.value;
+                loginError.textContent = '';
 
-            loginForm.addEventListener('submit', handleLogin);
+                const { data, error } = await db.from('users')
+                    .select('*')
+                    .eq('username', username)
+                    .eq('password', password)
+                    .single(); // .single() will error if more than one or no user found
+
+                if (data && !error) {
+                    currentUser = data;
+                    sessionStorage.setItem('loggedInUser', JSON.stringify(currentUser));
+                    await showClassSelection();
+                    loginForm.reset();
+                } else {
+                    loginError.textContent = 'Username atau password salah.';
+                }
+            });
+
             addStudentForm.addEventListener('submit', handleAddStudent);
-            adminLogoutBtn.addEventListener('click', handleLogout);
-            studentLogoutBtn.addEventListener('click', handleLogout);
-            selectionLogoutBtn.addEventListener('click', handleLogout);
-            saveScheduleBtn.addEventListener('click', handleSaveAllData);
+            saveScheduleBtn.addEventListener('click', saveAdminChanges);
+            [selectionLogoutBtn, adminLogoutBtn, studentLogoutBtn].forEach(btn => btn.addEventListener('click', logout));
+            [adminBackToSelectionBtn, studentBackToSelectionBtn].forEach(btn => btn.addEventListener('click', showClassSelection));
+
+            // --- Initial Check on page load ---
+            async function initializeApp() {
+                 if (SUPABASE_URL.includes('ANDA') || SUPABASE_ANON_KEY.includes('ANDA')) {
+                    appContainer.innerHTML = `
+                        <div class="bg-white p-8 rounded-xl shadow-lg text-center">
+                            <h1 class="text-2xl font-bold text-red-600 mb-4">Konfigurasi Supabase Diperlukan</h1>
+                            <p class="text-gray-700">Silakan buka file <code class="bg-gray-200 p-1 rounded">index.html</code> dan ganti nilai <code class="bg-gray-200 p-1 rounded">SUPABASE_URL</code> dan <code class="bg-gray-200 p-1 rounded">SUPABASE_ANON_KEY</code> dengan kredensial dari proyek Supabase Anda.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Inisialisasi klien Supabase HANYA jika kredensial sudah diisi
+                db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                const userFromSession = sessionStorage.getItem('loggedInUser');
+                if (userFromSession) {
+                    currentUser = JSON.parse(userFromSession);
+                    const classIdFromSession = sessionStorage.getItem('selectedClassId');
+                    if (classIdFromSession) {
+                        const { data: classInfo, error } = await db.from('classes').select('*').eq('id', classIdFromSession).single();
+                        if (classInfo && !error) {
+                           await showDashboard(classInfo);
+                        } else {
+                           await showClassSelection();
+                        }
+                    } else {
+                        await showClassSelection();
+                    }
+                } else {
+                    showPage(loginPage);
+                }
+            }
+
+            initializeApp();
         });
     </script>
 </body>
-</html>
+</html>                

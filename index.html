@@ -155,6 +155,26 @@
                 <h3 class="text-xl font-semibold text-gray-600 mb-4">Struktur Organisasi Kelas</h3>
                 <div id="admin-organisasi-container" class="bg-gray-50 p-4 rounded-lg"></div>
 
+                <!-- Bagian Pengingat Tugas Harian (Admin) -->
+                <h3 class="text-xl font-semibold text-gray-600 mb-4 mt-8">Pengingat Tugas Harian</h3>
+                <div class="bg-gray-50 p-4 rounded-lg mb-8">
+                    <form id="add-task-form" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-4">
+                        <div>
+                            <label for="task-text" class="block text-sm font-medium text-gray-600 mb-1">Tugas Baru</label>
+                            <input type="text" id="task-text" placeholder="Contoh: Kerjakan PR Bab 3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        </div>
+                        <div>
+                            <label for="task-due-date" class="block text-sm font-medium text-gray-600 mb-1">Tenggat</label>
+                            <input type="date" id="task-due-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+                        </div>
+                        <button type="submit" class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300 font-semibold text-sm h-10">Tambah Tugas</button>
+                    </form>
+                    <div id="admin-task-list" class="space-y-2">
+                        <!-- Daftar tugas admin akan dirender di sini -->
+                    </div>
+                </div>
+                <!-- Akhir Bagian Pengingat Tugas Harian (Admin) -->
+
                 <div class="mt-8 text-right">
                     <button id="save-schedule-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 font-semibold">Simpan Perubahan Info Kelas</button>
                 </div>
@@ -189,6 +209,14 @@
 
                 <h3 class="text-xl font-semibold text-gray-600 mb-4">Struktur Organisasi Kelas</h3>
                 <div id="student-organisasi-container" class="bg-gray-50 p-4 rounded-lg"></div>
+
+                <!-- Bagian Pengingat Tugas Harian (Siswa) -->
+                <h3 class="text-xl font-semibold text-gray-600 mb-4 mt-8">Pengingat Tugas Harian</h3>
+                <div id="student-task-list" class="bg-gray-50 p-4 rounded-lg space-y-3">
+                    <!-- Daftar tugas siswa akan dirender di sini -->
+                </div>
+                <!-- Akhir Bagian Pengingat Tugas Harian (Siswa) -->
+
             </div>
         </div>
 
@@ -211,6 +239,9 @@
             let currentUser = null;
             let currentClass = null;
             let realtimeChannel = null;
+
+            // Definisikan urutan hari yang benar
+            const orderedDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
 
             // --- DOM Elements ---
             const appContainer = document.getElementById('app-container');
@@ -240,6 +271,12 @@
             const studentDashboardTitle = document.getElementById('student-dashboard-title');
             const notificationArea = document.getElementById('notification-area');
             const toastContainer = document.getElementById('toast-container');
+            
+            // DOM Elements Baru untuk Tugas Harian
+            const addTaskForm = document.getElementById('add-task-form');
+            const adminTaskList = document.getElementById('admin-task-list');
+            const studentTaskList = document.getElementById('student-task-list');
+
 
             // --- Functions ---
             function showToast(message, type = 'success') {
@@ -281,7 +318,8 @@
                 if (!scheduleData) {
                      tableElement.innerHTML = '<tbody><tr><td class="p-4">Data jadwal tidak tersedia.</td></tr></tbody>'; return;
                 }
-                const days = Object.keys(scheduleData);
+                // const days = Object.keys(scheduleData); // Hapus baris ini
+                const days = orderedDays; // Gunakan urutan hari yang sudah pasti
                 if (days.length === 0) {
                     tableElement.innerHTML = '<tbody><tr><td class="p-4">Jadwal belum diatur.</td></tr></tbody>'; return;
                 }
@@ -321,19 +359,27 @@
                  if (!piketData) {
                      tableElement.innerHTML = '<tbody><tr><td class="p-4">Data piket tidak tersedia.</td></tr></tbody>'; return;
                 }
-                const days = Object.keys(piketData);
-                let html = '<thead><tr>';
-                days.forEach(day => html += `<th>${day}</th>`);
-                html += '</tr></thead><tbody><tr>';
+                // const days = Object.keys(piketData); // Hapus baris ini
+                const days = orderedDays; // Gunakan urutan hari yang sudah pasti
+                
+                // Ubah layout tabel menjadi vertikal
+                let html = '<thead><tr><th class="w-1/6">Hari</th><th>Nama Siswa</th></tr></thead><tbody>';
+                
                 days.forEach(day => {
                     const names = piketData[day] || '';
+                    html += '<tr>';
+                    html += `<td class="font-semibold">${day}</td>`; // Kolom Hari
+                    
                     if (isAdmin) {
-                        html += `<td><textarea data-day="${day}" class="w-full h-32 p-2 border rounded text-sm text-center">${names}</textarea></td>`;
+                        // Kolom Nama (Admin) - ubah ke text-left
+                        html += `<td><textarea data-day="${day}" class="w-full h-24 p-2 border rounded text-sm text-left">${names}</textarea></td>`;
                     } else {
-                        html += `<td class="text-sm leading-relaxed">${names.replace(/\n/g, '<br>')}</td>`;
+                        // Kolom Nama (Siswa) - ubah ke text-left
+                        html += `<td class="text-sm leading-relaxed text-left">${names.replace(/\n/g, '<br>')}</td>`;
                     }
+                    html += '</tr>';
                 });
-                html += '</tr></tbody>';
+                html += '</tbody>';
                 tableElement.innerHTML = html;
             }
 
@@ -363,6 +409,103 @@
                 containerElement.innerHTML = html;
             }
 
+            // --- Fungsi Baru untuk Tugas Harian ---
+
+            function renderAdminTasks(tasks) {
+                adminTaskList.innerHTML = '';
+                if (!tasks || tasks.length === 0) {
+                    adminTaskList.innerHTML = '<p class="text-sm text-gray-500">Belum ada tugas.</p>';
+                    return;
+                }
+                tasks.forEach(task => {
+                    const taskEl = document.createElement('div');
+                    taskEl.className = 'flex justify-between items-center bg-white p-2 rounded border';
+                    taskEl.innerHTML = `
+                        <div>
+                            <p class="font-medium">${task.text}</p>
+                            <p class="text-xs text-gray-500">Tenggat: ${task.dueDate}</p>
+                        </div>
+                        <button data-task-id="${task.id}" class="delete-task-btn bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">Hapus</button>
+                    `;
+                    adminTaskList.appendChild(taskEl);
+                });
+                document.querySelectorAll('.delete-task-btn').forEach(btn => btn.addEventListener('click', handleDeleteTask));
+            }
+
+            function renderStudentTasks(tasks) {
+                studentTaskList.innerHTML = '';
+                if (!tasks || tasks.length === 0) {
+                    studentTaskList.innerHTML = '<p class="text-sm text-gray-500">Tidak ada tugas harian. Hore!</p>';
+                    return;
+                }
+                const doneTasks = JSON.parse(localStorage.getItem(`doneTasks_${currentClass.id}`)) || [];
+                tasks.forEach(task => {
+                    const isDone = doneTasks.includes(task.id);
+                    const taskEl = document.createElement('div');
+                    taskEl.className = 'flex items-center';
+                    taskEl.innerHTML = `
+                        <input type="checkbox" id="task-${task.id}" data-task-id="${task.id}" class="student-task-cb h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" ${isDone ? 'checked' : ''}>
+                        <label for="task-${task.id}" class="ml-2 ${isDone ? 'line-through text-gray-400' : ''}">
+                            <span class="font-medium">${task.text}</span>
+                            <span class="text-xs text-gray-500 ml-1">(Tenggat: ${task.dueDate})</span>
+                        </label>
+                    `;
+                    studentTaskList.appendChild(taskEl);
+                });
+                document.querySelectorAll('.student-task-cb').forEach(cb => cb.addEventListener('change', handleToggleTask));
+            }
+
+            function handleAddTask(event) {
+                event.preventDefault();
+                const taskText = document.getElementById('task-text').value.trim();
+                const taskDueDate = document.getElementById('task-due-date').value;
+                if (!taskText || !taskDueDate) {
+                    showToast('Tugas dan tenggat tidak boleh kosong.', 'error');
+                    return;
+                }
+                const newTask = {
+                    id: `task_${Date.now()}`, // Buat ID unik sederhana
+                    text: taskText,
+                    dueDate: taskDueDate
+                };
+                if (!currentClass.data.tugas_data) {
+                    currentClass.data.tugas_data = [];
+                }
+                currentClass.data.tugas_data.push(newTask);
+                renderAdminTasks(currentClass.data.tugas_data);
+                addTaskForm.reset();
+                showToast('Tugas ditambahkan. Klik "Simpan Perubahan" untuk menyimpan.', 'success');
+            }
+
+            function handleDeleteTask(event) {
+                const taskId = event.target.dataset.taskId;
+                currentClass.data.tugas_data = currentClass.data.tugas_data.filter(task => task.id !== taskId);
+                renderAdminTasks(currentClass.data.tugas_data);
+                showToast('Tugas dihapus. Klik "Simpan Perubahan" untuk menyimpan.', 'success');
+            }
+
+            function handleToggleTask(event) {
+                const taskId = event.target.dataset.taskId;
+                const isDone = event.target.checked;
+                const storageKey = `doneTasks_${currentClass.id}`;
+                let doneTasks = JSON.parse(localStorage.getItem(storageKey)) || [];
+                
+                if (isDone) {
+                    if (!doneTasks.includes(taskId)) {
+                        doneTasks.push(taskId);
+                    }
+                } else {
+                    doneTasks = doneTasks.filter(id => id !== taskId);
+                }
+                localStorage.setItem(storageKey, JSON.stringify(doneTasks));
+                
+                // Panggil render lagi untuk update tampilan (coretan)
+                renderStudentTasks(currentClass.data.tugas_data);
+            }
+
+            // --- Akhir Fungsi Baru ---
+
+
             async function saveAdminChanges() {
                 if (!currentClass) return;
                 
@@ -371,7 +514,8 @@
                 const newPiketData = {};
                 const newOrganisasiData = {};
                 
-                const days = Object.keys(currentClass.data.schedule_data);
+                // const days = Object.keys(currentClass.data.schedule_data); // Hapus baris ini
+                const days = orderedDays; // Gunakan urutan hari yang sudah pasti
                 const timeInputs = adminScheduleTable.querySelectorAll('input[data-old-time]');
                 timeInputs.forEach(timeInput => {
                     const oldTime = timeInput.dataset.oldTime;
@@ -388,13 +532,15 @@
                 });
                 adminPiketTable.querySelectorAll('textarea').forEach(textarea => { newPiketData[textarea.dataset.day] = textarea.value; });
                 adminOrganisasiContainer.querySelectorAll('input').forEach(input => { newOrganisasiData[input.dataset.position] = input.value; });
+                const newTugasData = currentClass.data.tugas_data || []; // Ambil data tugas
 
                 // Update data in Supabase
                 const { error } = await db.from('class_data')
                     .update({
                         schedule_data: newScheduleData,
                         piket_data: newPiketData,
-                        organization_data: newOrganisasiData
+                        organization_data: newOrganisasiData,
+                        tugas_data: newTugasData // Simpan data tugas
                     })
                     .eq('class_id', currentClass.id);
 
@@ -407,6 +553,7 @@
                     currentClass.data.schedule_data = newScheduleData;
                     currentClass.data.piket_data = newPiketData;
                     currentClass.data.organization_data = newOrganisasiData;
+                    currentClass.data.tugas_data = newTugasData; // Update state tugas
                 }
             }
             
@@ -460,12 +607,14 @@
                     renderSchedule(adminScheduleTable, true, data.schedule_data);
                     renderPiketSchedule(adminPiketTable, true, data.piket_data);
                     renderOrganisasi(adminOrganisasiContainer, true, data.organization_data);
+                    renderAdminTasks(data.tugas_data || []); // Render tugas admin
                     showPage(adminDashboard);
                 } else {
                     studentDashboardTitle.textContent = `Informasi Kelas ${classInfo.name.toUpperCase()}`;
                     renderSchedule(studentScheduleTable, false, data.schedule_data);
                     renderPiketSchedule(studentPiketTable, false, data.piket_data);
                     renderOrganisasi(studentOrganisasiContainer, false, data.organization_data);
+                    renderStudentTasks(data.tugas_data || []); // Render tugas siswa
                     // Setup realtime listener
                     subscribeToChanges(classInfo.id);
                     showPage(studentDashboard);
@@ -516,7 +665,7 @@
                         renderSchedule(studentScheduleTable, false, newData.schedule_data);
                         renderPiketSchedule(studentPiketTable, false, newData.piket_data);
                         renderOrganisasi(studentOrganisasiContainer, false, newData.organization_data);
-
+                        renderStudentTasks(newData.tugas_data || []); // Update tugas saat ada perubahan
                     })
                     .subscribe();
             }
@@ -583,6 +732,7 @@
             });
 
             addStudentForm.addEventListener('submit', handleAddStudent);
+            addTaskForm.addEventListener('submit', handleAddTask); // Listener untuk form tugas baru
             saveScheduleBtn.addEventListener('click', saveAdminChanges);
             [selectionLogoutBtn, adminLogoutBtn, studentLogoutBtn].forEach(btn => btn.addEventListener('click', logout));
             [adminBackToSelectionBtn, studentBackToSelectionBtn].forEach(btn => btn.addEventListener('click', showClassSelection));
@@ -625,4 +775,4 @@
         });
     </script>
 </body>
-</html>                
+</html>

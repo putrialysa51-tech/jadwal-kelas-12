@@ -250,7 +250,7 @@
                  <header class="flex flex-wrap justify-between items-center mb-6 pb-4 border-b gap-4">
                     <h2 id="student-dashboard-title" class="text-2xl font-bold text-gray-700">Informasi Kelas</h2>
                     <div>
-                        <button id="student-back-to-selection-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300 text-sm font-medium">Pilih Kelas Lain</button>
+                        <button id="student-back-to-selection-btn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300 text-sm font-medium hidden">Pilih Kelas Lain</button>
                         <button id="student-logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300 text-sm font-medium ml-2">Logout</button>
                     </div>
                 </header>
@@ -926,7 +926,6 @@
 
             // --- Event Listeners ---
             loginForm.addEventListener('submit', async (e) => {
-// ... (Logika tidak berubah, 'guru' akan masuk ke 'else' block) ...
                 e.preventDefault();
                 const username = e.target.username.value;
                 const password = e.target.password.value;
@@ -943,14 +942,43 @@
                     sessionStorage.setItem('loggedInUser', JSON.stringify(currentUser));
                     
                     if (currentUser.role === 'admin') {
+                        // Admin: fetch first class
                         const { data: classes, error: classError } = await db.from('classes').select('*').limit(1);
                         if (classError || !classes || classes.length === 0) {
                             showToast('Tidak ada data kelas yang ditemukan.', 'error');
                             return;
                         }
                         await showDashboard(classes[0]); 
+                    } else if (currentUser.role === 'siswa') {
+                        let classNameToLoad = null;
+                        // Logika baru untuk siswa spesifik
+                        if (currentUser.username === 'aura') {
+                            classNameToLoad = '12 a';
+                        } else if (currentUser.username === 'bima') {
+                            classNameToLoad = '12 b';
+                        } else if (currentUser.username === 'adnan') {
+                            classNameToLoad = '12 c';
+                        }
+
+                        if (classNameToLoad) {
+                            // Siswa spesifik: fetch kelas mereka
+                            const { data: classInfo, error: classError } = await db.from('classes').select('*').eq('name', classNameToLoad).single();
+                            if (classError || !classInfo) { 
+                                showToast(`Kelas ${classNameToLoad} tidak ditemukan.`, 'error');
+                                return; 
+                            }
+                            await showDashboard(classInfo);
+                        } else {
+                            // Siswa lain: fetch kelas pertama
+                            const { data: classes, error: classError } = await db.from('classes').select('*').limit(1);
+                            if (classError || !classes || classes.length === 0) {
+                                showToast('Tidak ada data kelas yang ditemukan.', 'error');
+                                return;
+                            }
+                            await showDashboard(classes[0]);
+                        }
                     } else {
-                        // Siswa dan Guru akan masuk ke pemilihan kelas
+                        // Hanya Guru yang akan masuk ke pemilihan kelas
                         await showClassSelection();
                     }
                     
@@ -971,11 +999,10 @@
             saveTasksOnlyBtn.addEventListener('click', saveTaskChanges); // Listener untuk simpan tugas
 
             [selectionLogoutBtn, adminLogoutBtn, studentLogoutBtn, teacherLogoutBtn].forEach(btn => btn.addEventListener('click', logout)); // Tambah teacherLogoutBtn
-            [adminBackToSelectionBtn, studentBackToSelectionBtn, teacherBackToSelectionBtn].forEach(btn => btn.addEventListener('click', showClassSelection)); // Tambah teacherBackToSelectionBtn
+            [adminBackToSelectionBtn, teacherBackToSelectionBtn].forEach(btn => btn.addEventListener('click', showClassSelection)); // DIUBAH: .Gunakan menjadi .forEach
 
             // --- Initial Check on page load ---
             async function initializeApp() {
-// ... (Logika tidak berubah, 'guru' akan masuk ke 'else' block) ...
                  if (SUPABASE_URL.includes('ANDA') || SUPABASE_ANON_KEY.includes('ANDA')) {
                     appContainer.innerHTML = `
                         <div class="bg-white p-8 rounded-xl shadow-lg text-center">
@@ -1000,15 +1027,45 @@
                            await showClassSelection();
                         }
                     } else {
+                        // No class selected yet
                         if (currentUser.role === 'admin') {
+                            // Admin: fetch first class
                             const { data: classes, error: classError } = await db.from('classes').select('*').limit(1);
                             if (classError || !classes || classes.length === 0) {
                                 showToast('Tidak ada data kelas yang ditemukan.', 'error');
                                 return;
                             }
                             await showDashboard(classes[0]); 
+                        } else if (currentUser.role === 'siswa') {
+                            let classNameToLoad = null;
+                            // Logika baru untuk siswa spesifik
+                            if (currentUser.username === 'aura') {
+                                classNameToLoad = '12 a';
+                            } else if (currentUser.username === 'bima') {
+                                classNameToLoad = '12 b';
+                            } else if (currentUser.username === 'adnan') {
+                                classNameToLoad = '12 c';
+                            }
+
+                            if (classNameToLoad) {
+                                // Siswa spesifik: fetch kelas mereka
+                                const { data: classInfo, error: classError } = await db.from('classes').select('*').eq('name', classNameToLoad).single();
+                                if (classError || !classInfo) { 
+                                    showToast(`Kelas ${classNameToLoad} tidak ditemukan.`, 'error');
+                                    return; 
+                                }
+                                await showDashboard(classInfo);
+                            } else {
+                                // Siswa lain: fetch kelas pertama
+                                const { data: classes, error: classError } = await db.from('classes').select('*').limit(1);
+                                if (classError || !classes || classes.length === 0) {
+                                    showToast('Tidak ada data kelas yang ditemukan.', 'error');
+                                    return;
+                                }
+                                await showDashboard(classes[0]);
+                            }
                         } else {
-                            // Siswa dan Guru akan masuk ke pemilihan kelas
+                            // Hanya Guru yang akan masuk ke pemilihan kelas
                             await showClassSelection();
                         }
                     }
